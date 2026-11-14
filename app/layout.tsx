@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import { Geist, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
@@ -30,21 +31,21 @@ export default function RootLayout({
       lang="en"
       className={cn(
         "h-full",
-        "antialiased",
         geist.variable,
         jetbrainsMono.variable,
+        "antialiased"
       )}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-mono">
+      <body className="min-h-screen flex flex-col bg-background font-sans text-foreground antialiased transition-colors duration-200">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
           <Header />
-          {children}
+          <main className="flex-1">{children}</main>
         </ThemeProvider>
       </body>
     </html>

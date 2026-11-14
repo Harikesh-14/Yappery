@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import ModeToggle from "./mode-toggle";
+import GlobalSearch from "./global-search";
 
 const navLinks = [
   {
@@ -94,7 +95,16 @@ export default function Header() {
 
         {/* Right Actions */}
         <div className="flex shrink-0 items-center gap-2">
+          <div className="hidden sm:block">
+            <GlobalSearch />
+          </div>
+
           <ModeToggle />
+
+          {/* Mobile Search */}
+          <div className="sm:hidden">
+            <GlobalSearch />
+          </div>
 
           {/* Mobile Menu Button */}
           <button
