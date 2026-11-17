@@ -20,7 +20,7 @@ const footerLinks = [
 const socialLinks = [
   {
     title: "GitHub",
-    href: "https://github.com/Harikesh-14/thedevsden",
+    href: "https://github.com/Harikesh-14/Yappery",
     icon: GitBranch,
   },
   {
