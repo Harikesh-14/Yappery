@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   ArrowDownRight,
@@ -8,6 +10,9 @@ import {
   Hash,
   Sparkles,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ICategory } from "@/lib/types";
+import { toast } from "sonner";
 
 const articles = [
   {
@@ -42,9 +47,41 @@ const articles = [
   },
 ];
 
-const topics = ["Technology", "Programming", "Ideas", "Personal Growth", "Philosophy"];
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL!;
 
 export default function Home() {
+  const [categories, setCategories] = useState<ICategory[]>([]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${backendUrl}/yappery/categories`, {
+        method: "GET"
+      });
+
+      if (!response.ok) {
+        toast.error("Oops", {
+          description: "Failed to fetch the categories",
+          closeButton: true
+        })
+      }
+
+      const data = await response.json();
+      setCategories(data);
+      console.log(categories)
+    } catch {
+      toast.error("Oops", {
+        description: "[Categories/Fetch]: Internal Server Error",
+        closeButton: true
+      })
+    }
+  }
+
+  useEffect(() => {
+    Promise.allSettled([
+      fetchCategories()
+    ])
+  }, []);
+
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-20 px-5 py-12 sm:px-8 lg:gap-28 lg:px-10 lg:py-16">
       {/* HERO */}
@@ -307,13 +344,13 @@ export default function Home() {
         </div>
 
         <div className="flex flex-wrap gap-2 sm:max-w-md sm:justify-end">
-          {topics.map((topic) => (
+          {categories.map((category) => (
             <Link
-              key={topic}
+              key={category._id}
               href="/categories"
               className="rounded-full border border-border bg-background px-4 py-2 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
             >
-              {topic}
+              {category.name}
             </Link>
           ))}
         </div>
