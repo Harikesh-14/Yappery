@@ -1,14 +1,27 @@
-import { LucideIcon } from "lucide-react";
-
-export interface ICategory {
+export interface IYapCategory {
   _id: string;
   name: string;
   slug: string;
-  badgeText: string;
-  description: string;
+  badgeText?: string;
+  description?: string;
+  tags?: string[];
+  icon?: string;
+  accent?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IYap {
+  _id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt: string;
+  category: IYapCategory;
   tags: string[];
-  icon: LucideIcon;
-  accent: string;
-  createdAt: Date;
-  updatedAt: Date;
+  readingTime: number;
+  isPublished: boolean;
+  viewsCount: number;
+  createdAt: string;
+  updatedAt: string;
 }

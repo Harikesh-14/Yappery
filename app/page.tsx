@@ -8,10 +8,11 @@ import {
   BookOpen,
   Clock3,
   Hash,
+  Loader2,
   Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ICategory } from "@/lib/types";
+import { IYapCategory, IYap } from "@/lib/types";
 import { toast } from "sonner";
 
 const articles = [
@@ -50,35 +51,66 @@ const articles = [
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL!;
 
 export default function Home() {
-  const [categories, setCategories] = useState<ICategory[]>([]);
+  const [categories, setCategories] = useState<IYapCategory[]>([]);
+  const [categoriesLoader, setCategoriesLoader] = useState<boolean>(false);
+  const [yaps, setYaps] = useState<IYap[]>([]);
+  const [yapsLoader, setYapsLoader] = useState<boolean>(false);
 
+  // Fetching categories
   const fetchCategories = async () => {
+    setCategoriesLoader(true);
+
     try {
       const response = await fetch(`${backendUrl}/yappery/categories`, {
         method: "GET"
       });
 
       if (!response.ok) {
-        toast.error("Oops", {
-          description: "Failed to fetch the categories",
-          closeButton: true
-        })
+        throw new Error("Failed to fetch categories");
       }
 
       const data = await response.json();
       setCategories(data);
-      console.log(categories)
     } catch {
       toast.error("Oops", {
         description: "[Categories/Fetch]: Internal Server Error",
         closeButton: true
       })
+    } finally {
+      setCategoriesLoader(false);
     }
   }
 
+  // Fetching yaps
+  const fetchYaps = async () => {
+    setYapsLoader(true);
+
+    try {
+      const response = await fetch(`${backendUrl}/blogs`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch yaps");
+      }
+
+      const result = await response.json();
+
+      setYaps(result.data);
+    } catch (error) {
+      console.error(error);
+
+      toast.error("Oops", {
+        description: "[Yaps/Fetch]: Internal Server Error",
+        closeButton: true,
+      });
+    } finally {
+      setYapsLoader(false);
+    }
+  };
+
   useEffect(() => {
     Promise.allSettled([
-      fetchCategories()
+      fetchCategories(),
+      fetchYaps()
     ])
   }, []);
 
@@ -292,38 +324,54 @@ export default function Home() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {articles.map((article, index) => (
-            <Link
-              key={article.title}
-              href={article.href}
-              className="group flex flex-col justify-between rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
-            >
-              <div className="space-y-5">
-                <div className="flex items-center justify-between gap-3 font-mono text-[10px] tracking-wider">
-                  <span className={article.color}>{article.category}</span>
-                  <span className="text-muted-foreground">
-                    0{index + 1}
-                  </span>
+          {yapsLoader ? (
+            <div className="col-span-full flex justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : yaps.length > 0 ? (
+            yaps.map((article, index) => (
+              <Link
+                key={article._id}
+                href={`yaps/${article.slug}`}
+                className="group flex flex-col justify-between rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
+              >
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between gap-3 font-mono text-[10px] tracking-wider">
+                    <span className="border px-2 py-1 rounded-md">{article.category?.name ?? "Uncategorized"}</span>
+                    <span className="text-muted-foreground">
+                      0{index + 1}
+                    </span>
+                  </div>
+
+                  <h3 className="text-lg font-semibold leading-snug tracking-tight transition-colors group-hover:text-primary">
+                    {article.title}
+                  </h3>
+
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {article.excerpt}
+                  </p>
                 </div>
 
-                <h3 className="text-lg font-semibold leading-snug tracking-tight transition-colors group-hover:text-primary">
-                  {article.title}
-                </h3>
-
-                <p className="text-sm leading-6 text-muted-foreground">
-                  {article.description}
-                </p>
-              </div>
-
-              <div className="mt-8 flex items-center justify-between border-t border-border pt-4 font-mono text-[10px] text-muted-foreground">
-                <span>{article.date}</span>
-                <span className="flex items-center gap-1">
-                  <Clock3 className="h-3 w-3" />
-                  {article.readTime}
-                </span>
-              </div>
-            </Link>
-          ))}
+                <div className="mt-8 flex items-center justify-between border-t border-border pt-4 font-mono text-[10px] text-muted-foreground">
+                  <span>
+                    {new Date(article.createdAt).toLocaleDateString("en-GB", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock3 className="h-3 w-3" />
+                    {article.readingTime} mins
+                  </span>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <p className="col-span-full py-12 text-center text-sm text-muted-foreground">
+              No articles published yet. Check back soon!
+            </p>
+          )}
         </div>
       </section>
 
@@ -344,15 +392,23 @@ export default function Home() {
         </div>
 
         <div className="flex flex-wrap gap-2 sm:max-w-md sm:justify-end">
-          {categories.map((category) => (
-            <Link
-              key={category._id}
-              href="/categories"
-              className="rounded-full border border-border bg-background px-4 py-2 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
-            >
-              {category.name}
-            </Link>
-          ))}
+          {categoriesLoader ? (
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          ) : categories.length > 0 ? (
+            categories.map((category) => (
+              <Link
+                key={category._id}
+                href="/categories"
+                className="rounded-full border border-border bg-background px-4 py-2 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              >
+                {category.name}
+              </Link>
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No categories available.
+            </p>
+          )}
         </div>
       </section>
 
