@@ -1,97 +1,71 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  Activity,
   ArrowUpRight,
   Brain,
   Code2,
   Cpu,
+  Dumbbell,
   Feather,
   Layers3,
   Lightbulb,
   Search,
   X,
-  BookOpen,
-  Compass,
+  type LucideIcon,
 } from "lucide-react";
-
-const categories = [
-  {
-    id: "technology",
-    name: "Technology",
-    slug: "technology",
-    description:
-      "Exploring the technologies shaping our digital world, from emerging innovations to the tools we use every day.",
-    count: 12,
-    label: "DIGITAL FRONTIERS",
-    icon: Cpu,
-    accent: "primary",
-    topics: ["Innovation", "Internet", "Gadgets", "Future Tech"],
-  },
-  {
-    id: "programming",
-    name: "Programming",
-    slug: "programming",
-    description:
-      "Notes from the world of software development, programming languages, architecture, and building things with code.",
-    count: 18,
-    label: "BUILD WITH CODE",
-    icon: Code2,
-    accent: "secondary",
-    topics: ["JavaScript", "Swift", "Next.js", "Architecture"],
-  },
-  {
-    id: "artificial-intelligence",
-    name: "Artificial Intelligence",
-    slug: "artificial-intelligence",
-    description:
-      "Thinking about machine learning, intelligent systems, LLMs, and the possibilities of a world powered by AI.",
-    count: 9,
-    label: "INTELLIGENT SYSTEMS",
-    icon: Brain,
-    accent: "tertiary",
-    topics: ["Machine Learning", "LLMs", "Neural Networks", "AI Tools"],
-  },
-  {
-    id: "development",
-    name: "Development",
-    slug: "development",
-    description:
-      "Practical experiences, project breakdowns, development workflows, and lessons learned while bringing ideas to life.",
-    count: 14,
-    label: "IDEAS INTO REALITY",
-    icon: Layers3,
-    accent: "secondary",
-    topics: ["Web Development", "iOS", "Backend", "Open Source"],
-  },
-  {
-    id: "productivity",
-    name: "Productivity",
-    slug: "productivity",
-    description:
-      "Exploring better ways to learn, focus, manage time, build habits, and make meaningful progress.",
-    count: 7,
-    label: "WORK WITH INTENTION",
-    icon: Compass,
-    accent: "primary",
-    topics: ["Focus", "Time Management", "Learning", "Habits"],
-  },
-  {
-    id: "ideas-and-thoughts",
-    name: "Ideas & Thoughts",
-    slug: "ideas-and-thoughts",
-    description:
-      "A place for curious questions, personal reflections, unusual ideas, and thoughts that deserve a little more exploration.",
-    count: 11,
-    label: "CURIOSITY UNFILTERED",
-    icon: Lightbulb,
-    accent: "tertiary",
-    topics: ["Philosophy", "Science", "Creativity", "Reflections"],
-  },
-] as const;
+import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { IYapCategory } from "@/lib/types";
 
 type Accent = "primary" | "secondary" | "tertiary";
+
+interface CategoryVisual {
+  icon: LucideIcon;
+  accent: Accent;
+  label: string;
+}
+
+const categoryVisuals: Record<string, CategoryVisual> = {
+  technology: {
+    icon: Cpu,
+    accent: "primary",
+    label: "DIGITAL FRONTIERS",
+  },
+  programming: {
+    icon: Code2,
+    accent: "secondary",
+    label: "BUILD WITH CODE",
+  },
+  "artificial-intelligence": {
+    icon: Brain,
+    accent: "tertiary",
+    label: "INTELLIGENT SYSTEMS",
+  },
+  development: {
+    icon: Activity,
+    accent: "primary",
+    label: "IDEAS INTO REALITY",
+  },
+  productivity: {
+    icon: Dumbbell,
+    accent: "secondary",
+    label: "WORK WITH INTENTION",
+  },
+  "ideas-thoughts": {
+    icon: Lightbulb,
+    accent: "tertiary",
+    label: "CURIOSITY UNFILTERED",
+  },
+};
+
+const defaultVisual: CategoryVisual = {
+  icon: Layers3,
+  accent: "primary",
+  label: "EXPLORE IDEAS",
+};
 
 const accentStyles: Record<
   Accent,
@@ -107,62 +81,147 @@ const accentStyles: Record<
     text: "text-indigo-600 dark:text-[#A5A0FF]",
     background: "bg-indigo-500/10 dark:bg-[#4F46E5]/10",
     border: "border-indigo-500/25 dark:border-[#4F46E5]/25",
-    hoverBorder: "group-hover:border-indigo-500/50 dark:group-hover:border-[#4F46E5]/50",
-    hoverText: "group-hover:text-indigo-600 dark:group-hover:text-[#A5A0FF]",
+    hoverBorder:
+      "group-hover:border-indigo-500/50 dark:group-hover:border-[#4F46E5]/50",
+    hoverText:
+      "group-hover:text-indigo-600 dark:group-hover:text-[#A5A0FF]",
   },
   secondary: {
     text: "text-cyan-600 dark:text-[#06B6D4]",
     background: "bg-cyan-500/10 dark:bg-[#06B6D4]/10",
     border: "border-cyan-500/25 dark:border-[#06B6D4]/25",
-    hoverBorder: "group-hover:border-cyan-500/50 dark:group-hover:border-[#06B6D4]/50",
-    hoverText: "group-hover:text-cyan-600 dark:group-hover:text-[#06B6D4]",
+    hoverBorder:
+      "group-hover:border-cyan-500/50 dark:group-hover:border-[#06B6D4]/50",
+    hoverText:
+      "group-hover:text-cyan-600 dark:group-hover:text-[#06B6D4]",
   },
   tertiary: {
     text: "text-emerald-600 dark:text-[#10B981]",
     background: "bg-emerald-500/10 dark:bg-[#10B981]/10",
     border: "border-emerald-500/25 dark:border-[#10B981]/25",
-    hoverBorder: "group-hover:border-emerald-500/50 dark:group-hover:border-[#10B981]/50",
-    hoverText: "group-hover:text-emerald-600 dark:group-hover:text-[#10B981]",
+    hoverBorder:
+      "group-hover:border-emerald-500/50 dark:group-hover:border-[#10B981]/50",
+    hoverText:
+      "group-hover:text-emerald-600 dark:group-hover:text-[#10B981]",
   },
 };
 
-const allTopics = Array.from(
-  new Set(categories.flatMap((category) => category.topics))
-);
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function CategoriesPage() {
   const [search, setSearch] = useState("");
-  const [activeTopic, setActiveTopic] = useState("All topics");
+
+  const [allTopics, setAllTopics] = useState<string[]>([]);
+  const [topicLoader, setTopicLoader] = useState(true);
+
+  const [categories, setCategories] = useState<IYapCategory[]>([]);
+  const [categoryLoader, setCategoryLoader] = useState(true);
+
+  // ============================================================
+  // FETCH DATA
+  // ============================================================
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    // Fetch all unique blog tags
+    const fetchAllTopics = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/blogs/tags`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to fetch topics");
+        }
+
+        const data: unknown = await response.json();
+
+        if (
+          !Array.isArray(data) ||
+          !data.every((item) => typeof item === "string")
+        ) {
+          throw new Error("Invalid topics response");
+        }
+
+        setAllTopics(
+          [...new Set(data.map((tag: string) => tag.trim()).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b))
+        );
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+
+        toast.error("Unable to load blog topics");
+      } finally {
+        if (!controller.signal.aborted) {
+          setTopicLoader(false);
+        }
+      }
+    };
+
+    // Fetch categories from the backend
+    const fetchAllCategories = async () => {
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/yappery/categories`,
+          {
+            signal: controller.signal,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Unable to fetch categories");
+        }
+
+        const data: unknown = await response.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid categories response");
+        }
+
+        setCategories(data as IYapCategory[]);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+
+        toast.error("Unable to load categories");
+      } finally {
+        if (!controller.signal.aborted) {
+          setCategoryLoader(false);
+        }
+      }
+    };
+
+    Promise.allSettled([
+      fetchAllTopics(),
+      fetchAllCategories(),
+    ]);
+
+    return () => controller.abort();
+  }, []);
+
+  // ============================================================
+  // SEARCH AND FILTERING
+  // ============================================================
 
   const filteredCategories = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return categories.filter((category) => {
-      const matchesSearch =
-        !query ||
+    if (!query) return categories;
+
+    return categories.filter(
+      (category) =>
         category.name.toLowerCase().includes(query) ||
-        category.description.toLowerCase().includes(query) ||
-        category.topics.some((topic) =>
-          topic.toLowerCase().includes(query)
-        );
-
-      const matchesTopic =
-        activeTopic === "All topics" ||
-        (category.topics as readonly string[]).includes(activeTopic);
-
-      return matchesSearch && matchesTopic;
-    });
-  }, [search, activeTopic]);
-
-  const totalPosts = categories.reduce(
-    (total, category) => total + category.count,
-    0
-  );
+        (category.description ?? "").toLowerCase().includes(query)
+    );
+  }, [search, categories]);
 
   const clearFilters = () => {
     setSearch("");
-    setActiveTopic("All topics");
   };
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <main className="min-h-screen bg-background text-foreground transition-colors duration-200">
@@ -187,6 +246,7 @@ export default function CategoriesPage() {
                 <Layers3 size={12} />
                 THE YAPPERY INDEX
               </span>
+
               <span className="text-muted-foreground">/</span>
               <span className="text-muted-foreground">CATEGORIES</span>
             </div>
@@ -211,18 +271,28 @@ export default function CategoriesPage() {
                   <p className="font-mono text-[9px] tracking-wider text-muted-foreground sm:text-[10px]">
                     CATEGORIES
                   </p>
-                  <p className="mt-1.5 text-2xl font-semibold sm:text-3xl">
-                    {String(categories.length).padStart(2, "0")}
-                  </p>
+
+                  {categoryLoader ? (
+                    <Skeleton className="mt-2 h-8 w-12" />
+                  ) : (
+                    <p className="mt-1.5 text-2xl font-semibold sm:text-3xl">
+                      {String(categories.length).padStart(2, "0")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <p className="font-mono text-[9px] tracking-wider text-muted-foreground sm:text-[10px]">
-                    YAPS
+                    TOPICS
                   </p>
-                  <p className="mt-1.5 text-2xl font-semibold sm:text-3xl">
-                    {String(totalPosts).padStart(2, "0")}
-                  </p>
+
+                  {topicLoader ? (
+                    <Skeleton className="mt-2 h-8 w-12" />
+                  ) : (
+                    <p className="mt-1.5 text-2xl font-semibold sm:text-3xl">
+                      {String(allTopics.length).padStart(2, "0")}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -238,8 +308,9 @@ export default function CategoriesPage() {
                   <Search size={17} className="text-primary" />
                   Explore the index
                 </h2>
+
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Find a category or follow a particular topic.
+                  Find a category or explore a particular topic.
                 </p>
               </div>
 
@@ -253,8 +324,8 @@ export default function CategoriesPage() {
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search categories and topics..."
-                  aria-label="Search categories and topics"
+                  placeholder="Search categories..."
+                  aria-label="Search categories"
                   className="h-11 w-full rounded-lg border border-input bg-background pl-10 pr-10 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
                 />
 
@@ -271,31 +342,35 @@ export default function CategoriesPage() {
               </div>
             </div>
 
+            {/* TOPIC TAGS */}
             <div>
               <p className="mb-3 font-mono text-[9px] tracking-[0.13em] text-muted-foreground sm:text-[10px]">
                 EXPLORE BY TOPIC
               </p>
 
-              <div className="flex flex-wrap gap-2">
-                {["All topics", ...allTopics].map((topic) => {
-                  const isActive = activeTopic === topic;
-
-                  return (
-                    <button
+              <div className="flex flex-wrap gap-2" aria-busy={topicLoader}>
+                {topicLoader ? (
+                  Array.from({ length: 10 }).map((_, index) => (
+                    <Skeleton
+                      key={index}
+                      className="h-8 w-20 rounded-md"
+                    />
+                  ))
+                ) : allTopics.length > 0 ? (
+                  allTopics.map((topic) => (
+                    <Link
                       key={topic}
-                      type="button"
-                      onClick={() => setActiveTopic(topic)}
-                      aria-pressed={isActive}
-                      className={`rounded-md border px-3 py-2 text-[11px] transition-colors sm:py-1.5 sm:text-xs ${
-                        isActive
-                          ? "border-primary/40 bg-primary/10 text-primary"
-                          : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                      }`}
+                      href={`/yaps?tag=${encodeURIComponent(topic)}`}
+                      className="rounded-md border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary sm:py-1.5 sm:text-xs"
                     >
                       {topic}
-                    </button>
-                  );
-                })}
+                    </Link>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No topics available yet.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -308,6 +383,7 @@ export default function CategoriesPage() {
               <p className="mb-2 font-mono text-[9px] tracking-[0.15em] text-muted-foreground sm:text-[10px]">
                 THE COLLECTION
               </p>
+
               <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                 Browse categories
               </h2>
@@ -315,31 +391,66 @@ export default function CategoriesPage() {
 
             <div className="flex items-center justify-between gap-4">
               <span className="font-mono text-[10px] text-muted-foreground">
-                SHOWING {String(filteredCategories.length).padStart(2, "0")}{" "}
-                OF {String(categories.length).padStart(2, "0")}
+                SHOWING{" "}
+                {String(filteredCategories.length).padStart(2, "0")} OF{" "}
+                {categoryLoader
+                  ? "--"
+                  : String(categories.length).padStart(2, "0")}
               </span>
 
-              {(search || activeTopic !== "All topics") && (
+              {search && (
                 <button
                   type="button"
                   onClick={clearFilters}
                   className="text-xs text-primary transition-colors hover:opacity-80"
                 >
-                  Clear filters
+                  Clear search
                 </button>
               )}
             </div>
           </div>
 
-          {filteredCategories.length > 0 ? (
+          {/* CATEGORY LOADING SKELETONS */}
+          {categoryLoader ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:gap-5">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="flex min-h-72.5 flex-col justify-between rounded-xl border border-border bg-card p-5 sm:p-6"
+                >
+                  <div>
+                    <div className="mb-6 flex items-start justify-between">
+                      <Skeleton className="h-11 w-11 rounded-lg" />
+                      <Skeleton className="h-3 w-12" />
+                    </div>
+
+                    <Skeleton className="h-5 w-32 rounded" />
+                    <Skeleton className="mt-4 h-7 w-3/4 rounded" />
+
+                    <div className="mt-4 space-y-2">
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-5/6" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredCategories.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:gap-5">
               {filteredCategories.map((category, index) => {
-                const Icon = category.icon;
-                const style = accentStyles[category.accent];
+                const visual = categoryVisuals[category.slug] ?? defaultVisual;
+                const Icon = visual.icon;
+                const style = accentStyles[visual.accent];
 
                 return (
                   <Link
-                    key={category.id}
+                    key={category.slug}
                     href={`/categories/${category.slug}`}
                     className={`group flex min-w-0 flex-col justify-between rounded-xl border border-border bg-card p-5 text-card-foreground transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent sm:p-6 ${style.hoverBorder}`}
                   >
@@ -362,7 +473,7 @@ export default function CategoriesPage() {
                       <span
                         className={`inline-flex max-w-full rounded border px-2 py-1 font-mono text-[9px] tracking-wider ${style.background} ${style.border} ${style.text}`}
                       >
-                        {category.label}
+                        {visual.label}
                       </span>
 
                       {/* TITLE */}
@@ -372,6 +483,7 @@ export default function CategoriesPage() {
                         <span className="min-w-0 wrap-break-word">
                           {category.name}
                         </span>
+
                         <ArrowUpRight
                           size={17}
                           className="mt-1 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
@@ -382,36 +494,18 @@ export default function CategoriesPage() {
                       <p className="mt-3 text-[13px] leading-6 text-muted-foreground sm:text-sm">
                         {category.description}
                       </p>
-
-                      {/* TOPICS */}
-                      <div className="mt-5 flex flex-wrap gap-1.5">
-                        {category.topics.map((topic) => (
-                          <span
-                            key={topic}
-                            className="max-w-full wrap-break-word rounded-md border border-border bg-muted px-2 py-1 text-[10px] leading-4 text-muted-foreground"
-                          >
-                            {topic}
-                          </span>
-                        ))}
-                      </div>
                     </div>
 
                     {/* CARD FOOTER */}
-                    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-                      <div className="flex items-center gap-2">
-                        <BookOpen
-                          size={13}
-                          className="shrink-0 text-muted-foreground"
-                        />
-                        <span className="font-mono text-[10px] text-muted-foreground">
-                          {category.count} Yaps
-                        </span>
-                      </div>
+                    <div className="mt-6 flex items-center justify-between gap-3 border-t border-border pt-4">
+                      <span className="text-[11px] text-muted-foreground">
+                        Explore category
+                      </span>
 
                       <span
                         className={`flex items-center gap-1.5 text-[11px] ${style.text}`}
                       >
-                        Explore category
+                        Browse collection
                         <ArrowUpRight size={13} />
                       </span>
                     </div>
@@ -426,21 +520,24 @@ export default function CategoriesPage() {
               </div>
 
               <h3 className="text-base font-medium">
-                Nothing found here
+                {search ? "Nothing found here" : "No categories available"}
               </h3>
 
               <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                No categories match your search. Try another keyword or clear
-                your filters.
+                {search
+                  ? "No categories match your search. Try another keyword or clear your search."
+                  : "There are no categories to display right now. Check back later."}
               </p>
 
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="mt-5 text-xs font-medium text-primary transition-colors hover:opacity-80"
-              >
-                Clear all filters
-              </button>
+              {search && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="mt-5 text-xs font-medium text-primary transition-colors hover:opacity-80"
+                >
+                  Clear search
+                </button>
+              )}
             </div>
           )}
         </section>
