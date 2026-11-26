@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -54,6 +54,16 @@ const categoryIcons: Record<string, React.ElementType> = {
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
+
+function formatViews(count: number): string {
+  return new Intl.NumberFormat("en", {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  })
+    .format(count)
+    .replace(/K$/, "k");
+}
 
 function extractText(node: any): string {
   if (node.type === "text") return node.value ?? "";
@@ -193,21 +203,19 @@ function DesktopToc({
                 <li key={heading.id}>
                   <button
                     onClick={() => scrollToHeading(heading.id)}
-                    className={`group relative flex w-full items-start gap-3 py-1.5 text-left text-xs leading-relaxed transition-colors ${
-                      active
-                        ? "font-medium text-primary"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    className={`group relative flex w-full items-start gap-3 py-1.5 text-left text-xs leading-relaxed transition-colors ${active
+                      ? "font-medium text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                     style={{
                       paddingLeft: heading.level === 3 ? "0.75rem" : "0",
                     }}
                   >
                     <span
-                      className={`relative z-10 mt-1.75 size-1.75 shrink-0 rounded-full border transition-all ${
-                        active
-                          ? "scale-110 border-primary bg-primary"
-                          : "border-border bg-card group-hover:border-foreground/40"
-                      }`}
+                      className={`relative z-10 mt-1.75 size-1.75 shrink-0 rounded-full border transition-all ${active
+                        ? "scale-110 border-primary bg-primary"
+                        : "border-border bg-card group-hover:border-foreground/40"
+                        }`}
                     />
                     <span className="line-clamp-2">{heading.text}</span>
                   </button>
@@ -258,11 +266,10 @@ function MobileToc({
               <li key={heading.id}>
                 <button
                   onClick={() => scrollToHeading(heading.id)}
-                  className={`block w-full rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
-                    active
-                      ? "bg-primary/10 font-medium text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${active
+                    ? "bg-primary/10 font-medium text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
                   style={{
                     paddingLeft: heading.level === 3 ? "1.75rem" : "0.75rem",
                   }}
@@ -376,11 +383,10 @@ const markdownComponents: Components = {
 
   code: ({ className, children, ...props }) => (
     <code
-      className={`rounded-md font-mono text-[0.88em] ${
-        className
-          ? className
-          : "border border-border/60 bg-muted px-1.5 py-0.5 text-primary"
-      }`}
+      className={`rounded-md font-mono text-[0.88em] ${className
+        ? className
+        : "border border-border/60 bg-muted px-1.5 py-0.5 text-primary"
+        }`}
       {...props}
     >
       {children}
@@ -437,6 +443,46 @@ export default function SingleYapClient({ slug }: SingleYapClientProps) {
   const [activeHeading, setActiveHeading] = useState("");
   const [readingProgress, setReadingProgress] = useState(0);
 
+  const viewedSlugRef = useRef<string | null>(null);
+
+  const incrementViewCount = async (signal: AbortSignal) => {
+    if (!BACKEND_URL || viewedSlugRef.current === slug) return;
+
+    // Prevent duplicate requests during React Strict Mode effect re-runs.
+    viewedSlugRef.current = slug;
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/blogs/${encodeURIComponent(slug)}/view`,
+        {
+          method: "POST",
+          signal,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Unable to increment view count.");
+      }
+
+      // Update the displayed count only after the backend confirms success.
+      setYap((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          viewsCount: (current.viewsCount ?? 0) + 1,
+        };
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+
+      // Allow another attempt if the request failed.
+      viewedSlugRef.current = null;
+
+      console.error("Unable to increment yap views:", error);
+    }
+  };
+
   // Fetch article
   useEffect(() => {
     const controller = new AbortController();
@@ -460,6 +506,8 @@ export default function SingleYapClient({ slug }: SingleYapClientProps) {
 
         const data: IYap = await response.json();
         setYap(data);
+
+        void incrementViewCount(controller.signal);
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
 
@@ -678,9 +726,16 @@ export default function SingleYapClient({ slug }: SingleYapClientProps) {
                 {yap.readingTime || 1} min read
               </span>
 
-              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span
+                title={`${(yap.viewsCount ?? 0).toLocaleString("en-IN")} views`}
+                className="flex items-center gap-2 text-xs text-muted-foreground"
+              >
                 <Eye size={14} className="text-primary" />
-                {yap.viewsCount ?? 0} views
+
+                <span>
+                  {formatViews(yap.viewsCount ?? 0)}{" "}
+                  {(yap.viewsCount ?? 0) === 1 ? "view" : "views"}
+                </span>
               </span>
             </div>
           </header>
