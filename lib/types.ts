@@ -22,6 +22,8 @@ export interface IYap {
   readingTime: number;
   isPublished: boolean;
   viewsCount: number;
+  publishedAt?: string;
+  coverImage?: string | null;
   createdAt: string;
   updatedAt: string;
 }

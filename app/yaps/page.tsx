@@ -1,157 +1,282 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ElementType } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowDown,
   ArrowUpRight,
   BookOpen,
   CalendarDays,
   Clock3,
+  Code2,
+  Cpu,
   Grid2X2,
+  Lightbulb,
   List,
+  PenLine,
   Search,
   SlidersHorizontal,
+  Sparkles,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 
-const categories = [
-  "All",
-  "Technology",
-  "Programming",
-  "AI & ML",
-  "Personal",
-  "Ideas",
-];
+import type { IYap, IYapCategory } from "@/lib/types";
 
-const yaps = [
-  {
-    id: "01",
-    title: "The Curious Relationship Between Creativity and Code",
-    slug: "creativity-and-code",
-    excerpt:
-      "Programming is often described as a purely logical discipline. But the more I build things, the more I realize how much creativity is hiding behind every line of code.",
-    category: "Programming",
-    tags: ["Creativity", "Programming", "Thoughts"],
-    date: "2026-11-12",
-    readTime: "6 min read",
-    featured: true,
-  },
-  {
-    id: "02",
-    title: "What Does It Actually Mean to Build Something with AI?",
-    slug: "building-something-with-ai",
-    excerpt:
-      "AI tools are changing how we approach software development. But are we becoming better builders, or simply getting better at prompting?",
-    category: "AI & ML",
-    tags: ["Artificial Intelligence", "Future"],
-    date: "2026-11-08",
-    readTime: "8 min read",
-    featured: false,
-  },
-  {
-    id: "03",
-    title: "A Developer's Guide to Getting Lost in Side Projects",
-    slug: "getting-lost-in-side-projects",
-    excerpt:
-      "There is something special about building things just because you can. No deadlines, no clients, no expectations. Just curiosity.",
-    category: "Personal",
-    tags: ["Side Projects", "Learning"],
-    date: "2026-11-04",
-    readTime: "5 min read",
-    featured: false,
-  },
-  {
-    id: "04",
-    title: "Understanding the Internet Beyond the Browser",
-    slug: "internet-beyond-the-browser",
-    excerpt:
-      "We use the internet every day, but how often do we stop to think about what actually happens between entering a URL and seeing a webpage?",
-    category: "Technology",
-    tags: ["Networking", "Web"],
-    date: "2026-10-28",
-    readTime: "10 min read",
-    featured: false,
-  },
-  {
-    id: "05",
-    title: "The Art of Learning Things from Scratch",
-    slug: "learning-things-from-scratch",
-    excerpt:
-      "Starting from zero can feel overwhelming. Here's why embracing the fundamentals and enjoying the process might be the best way forward.",
-    category: "Ideas",
-    tags: ["Learning", "Personal Growth"],
-    date: "2026-10-21",
-    readTime: "4 min read",
-    featured: false,
-  },
-  {
-    id: "06",
-    title: "Why I Still Love Building Small Projects",
-    slug: "building-small-projects",
-    excerpt:
-      "Not every project needs to become a startup. Sometimes the best thing you can build is something small that solves a problem you personally have.",
-    category: "Programming",
-    tags: ["Projects", "Development"],
-    date: "2026-10-15",
-    readTime: "7 min read",
-    featured: false,
-  },
-];
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 type ViewMode = "list" | "grid";
 type SortMode = "newest" | "oldest" | "shortest" | "longest";
 
+interface BlogsResponse {
+  data: IYap[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+interface CategoryFilter {
+  name: string;
+  slug: string;
+  count: number;
+}
+
+const PAGE_LIMIT = 100;
+
+const categoryIcons: Record<string, ElementType> = {
+  technology: Cpu,
+  programming: Code2,
+  "ai-ml": Sparkles,
+  personal: PenLine,
+  ideas: Lightbulb,
+};
+
+function YapCover({ yap }: { yap: IYap }) {
+  const [imageError, setImageError] = useState(false);
+
+  const categorySlug = yap.category?.slug?.toLowerCase() ?? "";
+  const Icon = categoryIcons[categorySlug] ?? Lightbulb;
+
+  const imageUrl = yap.coverImage?.trim();
+  const showImage = Boolean(imageUrl) && !imageError;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [imageUrl]);
+
+  return (
+    <div className="relative aspect-video w-full overflow-hidden bg-muted">
+      {showImage ? (
+        <Image
+          src={imageUrl!}
+          alt={yap.title}
+          fill
+          sizes="(max-width: 640px) 100vw, 50vw"
+          unoptimized
+          onError={() => setImageError(true)}
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 via-secondary/10 to-tertiary/10">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex size-16 items-center justify-center rounded-2xl border border-border/50 bg-background/70 shadow-sm backdrop-blur-sm">
+              <Icon className="size-8 text-primary" />
+            </div>
+
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              {yap.category?.name ?? "Yappery"}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function YapsPage() {
+  const [yaps, setYaps] = useState<IYap[]>([]);
+  const [categories, setCategories] = useState<IYapCategory[]>([]);
+  const [totalYaps, setTotalYaps] = useState(0);
+
+  const [yapsLoading, setYapsLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeCategory, setActiveCategory] = useState("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
+  // Fetch published yaps, including additional pages when necessary.
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function fetchYaps() {
+      try {
+        if (!BACKEND_URL) {
+          throw new Error("Backend URL is not configured.");
+        }
+
+        const fetchPage = async (page: number): Promise<BlogsResponse> => {
+          const response = await fetch(
+            `${BACKEND_URL}/blogs?onlyPublished=true&page=${page}&limit=${PAGE_LIMIT}`,
+            { signal: controller.signal }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch yaps.");
+          }
+
+          return response.json();
+        };
+
+        const firstPage = await fetchPage(1);
+
+        let allYaps = [...(firstPage.data ?? [])];
+
+        if (firstPage.totalPages > 1) {
+          const remainingPages = await Promise.all(
+            Array.from(
+              { length: firstPage.totalPages - 1 },
+              (_, index) => fetchPage(index + 2)
+            )
+          );
+
+          allYaps = [
+            ...allYaps,
+            ...remainingPages.flatMap((page) => page.data ?? []),
+          ];
+        }
+
+        setYaps(allYaps);
+        setTotalYaps(firstPage.total ?? allYaps.length);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+
+        console.error("Error fetching yaps:", error);
+        toast.error("Unable to load yaps. Please try again.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setYapsLoading(false);
+        }
+      }
+    }
+
+    async function fetchCategories() {
+      try {
+        if (!BACKEND_URL) {
+          throw new Error("Backend URL is not configured.");
+        }
+
+        const response = await fetch(
+          `${BACKEND_URL}/yappery/categories`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch categories.");
+        }
+
+        const data: IYapCategory[] = await response.json();
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+
+        console.error("Error fetching categories:", error);
+        toast.error("Unable to load categories.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setCategoriesLoading(false);
+        }
+      }
+    }
+
+    fetchYaps();
+    fetchCategories();
+
+    return () => controller.abort();
+  }, []);
+
+  // Build category filters dynamically.
+  const categoryCounts = useMemo<CategoryFilter[]>(() => {
+    const filters: CategoryFilter[] = [
+      {
+        name: "All",
+        slug: "all",
+        count: totalYaps,
+      },
+    ];
+
+    categories.forEach((category) => {
+      filters.push({
+        name: category.name,
+        slug: category.slug,
+        count: yaps.filter(
+          (yap) => yap.category?.slug === category.slug
+        ).length,
+      });
+    });
+
+    return filters;
+  }, [categories, yaps, totalYaps]);
+
+  // Search, filter and sort yaps.
   const filteredYaps = useMemo(() => {
     const query = search.toLowerCase().trim();
 
     return yaps
       .filter((yap) => {
         const matchesCategory =
-          activeCategory === "All" || yap.category === activeCategory;
+          activeCategory === "all" ||
+          yap.category?.slug === activeCategory;
 
         const matchesSearch =
           !query ||
-          yap.title.toLowerCase().includes(query) ||
-          yap.excerpt.toLowerCase().includes(query) ||
-          yap.tags.some((tag) => tag.toLowerCase().includes(query));
+          yap.title?.toLowerCase().includes(query) ||
+          yap.excerpt?.toLowerCase().includes(query) ||
+          yap.tags?.some((tag) =>
+            tag.toLowerCase().includes(query)
+          );
 
         return matchesCategory && matchesSearch;
       })
       .sort((a, b) => {
+        const dateA = new Date(
+          a.publishedAt ?? a.createdAt
+        ).getTime();
+
+        const dateB = new Date(
+          b.publishedAt ?? b.createdAt
+        ).getTime();
+
         switch (sortMode) {
           case "oldest":
-            return a.date.localeCompare(b.date);
+            return dateA - dateB;
+
           case "shortest":
-            return parseInt(a.readTime) - parseInt(b.readTime);
+            return (a.readingTime ?? 0) - (b.readingTime ?? 0);
+
           case "longest":
-            return parseInt(b.readTime) - parseInt(a.readTime);
+            return (b.readingTime ?? 0) - (a.readingTime ?? 0);
+
           default:
-            return b.date.localeCompare(a.date);
+            return dateB - dateA;
         }
       });
-  }, [search, activeCategory, sortMode]);
+  }, [yaps, search, activeCategory, sortMode]);
 
   const formatDate = (date: string) =>
     new Intl.DateTimeFormat("en", {
       month: "short",
       day: "numeric",
       year: "numeric",
-    }).format(new Date(`${date}T12:00:00`));
+    }).format(new Date(date));
 
-  const categoryCounts = categories.map((category) => ({
-    name: category,
-    count:
-      category === "All"
-        ? yaps.length
-        : yaps.filter((yap) => yap.category === category).length,
-  }));
+  const activeCategoryName =
+    categoryCounts.find((category) => category.slug === activeCategory)
+      ?.name ?? "All topics";
+
+  const isLoading = yapsLoading || categoriesLoading;
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10">
@@ -166,7 +291,7 @@ export default function YapsPage() {
 
           <span className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            {yaps.length} published yaps
+            {isLoading ? "Loading yaps..." : `${totalYaps} published yaps`}
           </span>
         </div>
 
@@ -221,6 +346,7 @@ export default function YapsPage() {
               <button
                 onClick={() => setViewMode("list")}
                 aria-label="List view"
+                aria-pressed={viewMode === "list"}
                 className={`rounded-md p-2 transition-colors ${
                   viewMode === "list"
                     ? "bg-background text-primary shadow-sm"
@@ -233,6 +359,7 @@ export default function YapsPage() {
               <button
                 onClick={() => setViewMode("grid")}
                 aria-label="Grid view"
+                aria-pressed={viewMode === "grid"}
                 className={`rounded-md p-2 transition-colors ${
                   viewMode === "grid"
                     ? "bg-background text-primary shadow-sm"
@@ -266,10 +393,10 @@ export default function YapsPage() {
         <div className="flex flex-wrap items-center gap-2">
           {categoryCounts.map((category) => (
             <button
-              key={category.name}
-              onClick={() => setActiveCategory(category.name)}
+              key={category.slug}
+              onClick={() => setActiveCategory(category.slug)}
               className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                activeCategory === category.name
+                activeCategory === category.slug
                   ? "border-primary bg-primary text-white dark:text-black"
                   : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
               }`}
@@ -277,7 +404,7 @@ export default function YapsPage() {
               {category.name}
               <span
                 className={`font-mono text-[10px] ${
-                  activeCategory === category.name
+                  activeCategory === category.slug
                     ? "text-white/70 dark:text-black"
                     : "text-muted-foreground"
                 }`}
@@ -300,11 +427,34 @@ export default function YapsPage() {
             </div>
 
             <span className="font-mono text-[11px] text-muted-foreground">
-              {filteredYaps.length} RESULTS
+              {isLoading ? "LOADING" : `${filteredYaps.length} RESULTS`}
             </span>
           </div>
 
-          {filteredYaps.length > 0 ? (
+          {isLoading ? (
+            <div
+              className={
+                viewMode === "grid"
+                  ? "grid gap-4 sm:grid-cols-2"
+                  : "space-y-6"
+              }
+            >
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="animate-pulse rounded-xl border border-border p-5"
+                >
+                  {viewMode === "grid" && (
+                    <div className="mb-4 aspect-video rounded-lg bg-muted" />
+                  )}
+                  <div className="mb-4 h-3 w-1/3 rounded bg-muted" />
+                  <div className="mb-3 h-5 w-4/5 rounded bg-muted" />
+                  <div className="h-3 w-full rounded bg-muted" />
+                  <div className="mt-2 h-3 w-2/3 rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          ) : filteredYaps.length > 0 ? (
             <div
               className={
                 viewMode === "grid"
@@ -314,21 +464,34 @@ export default function YapsPage() {
             >
               {filteredYaps.map((yap, index) => (
                 <article
-                  key={yap.id}
+                  key={yap._id}
                   className={`group ${
                     viewMode === "list"
                       ? "py-6 first:pt-0"
                       : "rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40"
                   }`}
                 >
+                  {viewMode === "grid" && (
+                    <Link
+                      href={`/yaps/${yap.slug}`}
+                      className="-mx-5 -mt-5 mb-4 block overflow-hidden rounded-t-xl"
+                    >
+                      <YapCover yap={yap} />
+                    </Link>
+                  )}
+
                   <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                    <span className="text-primary">YAP / {yap.id}</span>
+                    <span className="text-primary">
+                      YAP / {String(index + 1).padStart(2, "0")}
+                    </span>
                     <span className="text-border">•</span>
-                    <span>{formatDate(yap.date)}</span>
+                    <span>
+                      {formatDate(yap.publishedAt ?? yap.createdAt)}
+                    </span>
                     <span className="text-border">•</span>
                     <span className="flex items-center gap-1">
                       <Clock3 size={11} />
-                      {yap.readTime}
+                      {yap.readingTime || 1} min read
                     </span>
                   </div>
 
@@ -349,10 +512,10 @@ export default function YapsPage() {
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">
-                        {yap.category}
+                        {yap.category?.name ?? "Uncategorized"}
                       </span>
 
-                      {yap.tags.slice(0, 2).map((tag) => (
+                      {(yap.tags ?? []).slice(0, 2).map((tag) => (
                         <span
                           key={tag}
                           className="text-[10px] text-muted-foreground"
@@ -382,7 +545,7 @@ export default function YapsPage() {
               <button
                 onClick={() => {
                   setSearch("");
-                  setActiveCategory("All");
+                  setActiveCategory("all");
                 }}
                 className="mt-4 text-xs font-medium text-primary hover:underline"
               >
@@ -409,7 +572,7 @@ export default function YapsPage() {
                   TOTAL YAPS
                 </p>
                 <p className="mt-1 text-2xl font-semibold tracking-tight">
-                  {yaps.length.toString().padStart(2, "0")}
+                  {totalYaps.toString().padStart(2, "0")}
                 </p>
               </div>
 
@@ -418,7 +581,7 @@ export default function YapsPage() {
                   CATEGORIES
                 </p>
                 <p className="mt-1 text-2xl font-semibold tracking-tight">
-                  {categories.length - 1}
+                  {categories.length.toString().padStart(2, "0")}
                 </p>
               </div>
             </div>
@@ -427,9 +590,7 @@ export default function YapsPage() {
               <p className="mb-2 font-mono text-[10px] text-muted-foreground">
                 CURRENTLY BROWSING
               </p>
-              <p className="text-sm font-medium">
-                {activeCategory === "All" ? "All topics" : activeCategory}
-              </p>
+              <p className="text-sm font-medium">{activeCategoryName}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {filteredYaps.length} matching{" "}
                 {filteredYaps.length === 1 ? "article" : "articles"}
@@ -448,12 +609,16 @@ export default function YapsPage() {
 
             <div className="space-y-1">
               {categoryCounts
-                .filter((category) => category.name !== "All")
+                .filter((category) => category.slug !== "all")
                 .map((category, index) => (
                   <button
-                    key={category.name}
-                    onClick={() => setActiveCategory(category.name)}
-                    className="flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-muted/60"
+                    key={category.slug}
+                    onClick={() => setActiveCategory(category.slug)}
+                    className={`flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-muted/60 ${
+                      activeCategory === category.slug
+                        ? "bg-muted/60"
+                        : ""
+                    }`}
                   >
                     <span className="flex items-center gap-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
                       <span
@@ -464,7 +629,7 @@ export default function YapsPage() {
                             "bg-emerald-500",
                             "bg-amber-500",
                             "bg-violet-500",
-                          ][index]
+                          ][index % 5]
                         }`}
                       />
                       {category.name}
