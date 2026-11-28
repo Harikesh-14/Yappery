@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import Header from "@/components/header";
 import Footer from "@/components/footet";
 import { Toaster } from "@/components/ui/sonner";
+import { Suspense } from "react";
 
 const geist = Geist({
   variable: "--font-geist",
@@ -46,7 +47,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Header />
+          <Suspense fallback={<div className="h-16" />}>
+            <Header />
+          </Suspense>
           <Toaster />
           <main className="flex-1">{children}</main>
           <Footer />
